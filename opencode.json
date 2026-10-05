@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "naraya": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "NaraRouter",
+      "options": {
+        "baseURL": "https://router.bynara.id/v1",
+        "apiKey": "sk-nry-skEsD6M57aFQHMO5wGu5AfjfbxGZ8Ex7P4JnhjEupyc"
+      },
+      "models": {
+        "laguna-s-2.1": {
+          "name": "laguna-s-2.1",
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          }
+        }
+      }
+    }
+  },
+  "model": "naraya/laguna-s-2.1"
+}

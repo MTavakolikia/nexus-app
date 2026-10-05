@@ -1,0 +1,500 @@
+// NEXUS — Engineering Control Plane
+// SQLite provider (sandbox): enums are modeled as String unions (enforced via zod
+// at the data layer), JSON as serialized String columns. See ADR-005/ADR-006 in-app.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ────────────────────────────── Identity & Org ──────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("enterprise")
+  createdAt DateTime @default(now())
+  teams     Team[]
+  users     User[]
+  services  Service[]
+  incidents Incident[]
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  slug        String   @unique
+  description String
+  color       String   @default("#14b8a6")
+  ownerId     String
+  createdAt   DateTime @default(now())
+  organization Organization @relation(fields: [orgId], references: [id])
+  owner        User         @relation("TeamOwner", fields: [ownerId], references: [id])
+  members      Membership[]
+  services     Service[]
+
+  @@index([orgId])
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  title       String
+  role        String   @default("DEVELOPER")
+  avatarColor String   @default("#14b8a6")
+  orgId       String
+  createdAt   DateTime @default(now())
+  organization Organization @relation(fields: [orgId], references: [id])
+  memberships  Membership[]
+  ownedTeams   Team[]       @relation("TeamOwner")
+  ownedServices Service[]   @relation("ServiceOwner")
+  deployments  Deployment[] @relation("DeployAuthor")
+  incidents    Incident[]   @relation("IncidentOwner")
+}
+
+model Membership {
+  id     String @id @default(cuid())
+  userId String
+  teamId String
+  role   String @default("member")
+  user User @relation(fields: [userId], references: [id])
+  team Team @relation(fields: [teamId], references: [id])
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+}
+
+// ────────────────────────────── Catalog ──────────────────────────────
+
+model Repository {
+  id                String   @id @default(cuid())
+  orgId             String
+  name              String   @unique
+  url               String
+  provider          String   @default("github")
+  defaultBranch     String   @default("main")
+  language          String
+  lastCommitSha     String
+  lastCommitMessage String
+  lastCommitAt      DateTime
+  openPrs           Int      @default(0)
+  contributors      Int      @default(1)
+  buildStatus       String   @default("passing")
+  service           Service?
+
+  @@index([orgId])
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  orgId       String
+  teamId      String
+  repoId      String?  @unique
+  name        String   @unique
+  slug        String   @unique
+  description String
+  kind        String   @default("backend")
+  language    String
+  framework   String
+  tier        String   @default("tier-2")
+  status      String   @default("healthy")
+  version     String   @default("0.0.0")
+  ownerId     String?
+  owner       User?    @relation("ServiceOwner", fields: [ownerId], references: [id])
+  docsUrl     String?
+  createdAt   DateTime @default(now())
+  organization Organization @relation(fields: [orgId], references: [id])
+  team         Team         @relation(fields: [teamId], references: [id])
+  repository   Repository?  @relation(fields: [repoId], references: [id])
+  deployments  Deployment[]
+  metrics      Metric[]
+  logs         LogEntry[]
+  performance  PerformanceSnapshot[]
+  vulnerabilities Vulnerability[]
+
+  @@index([teamId])
+  @@index([status])
+}
+
+// Environments are org-level: development / staging / production / canary
+model Environment {
+  id        String  @id @default(cuid())
+  orgId     String
+  name      String
+  slug      String  @unique
+  kind      String  @default("static")
+  url       String?
+  isDefault Boolean @default(false)
+
+  @@index([orgId])
+}
+
+// ────────────────────────────── Delivery ──────────────────────────────
+
+model Deployment {
+  id            String   @id @default(cuid())
+  ref           String   @unique
+  serviceId     String
+  envName       String   @default("production")
+  version       String
+  commitSha     String
+  branch        String   @default("main")
+  authorId      String
+  status        String   @default("QUEUED")
+  trigger       String   @default("push")
+  startedAt     DateTime @default(now())
+  finishedAt    DateTime?
+  durationMs    Int?
+  filesChanged  Int      @default(0)
+  addLines      Int      @default(0)
+  delLines      Int      @default(0)
+  bundleSizeKb  Float?
+  bundleDeltaKb Float?
+  testsPassed   Int?
+  testsTotal    Int?
+  changeSummary String?
+  rollbackOfId  String?
+  createdAt     DateTime @default(now())
+  service  Service @relation(fields: [serviceId], references: [id])
+  author   User    @relation("DeployAuthor", fields: [authorId], references: [id])
+  stages   PipelineStage[]
+
+  @@index([serviceId, startedAt])
+  @@index([status])
+}
+
+model PipelineStage {
+  id           String   @id @default(cuid())
+  deploymentId String
+  name         String
+  status       String   @default("PENDING")
+  position     Int      @default(0)
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  durationMs   Int?
+  log          String?
+  deployment Deployment @relation(fields: [deploymentId], references: [id])
+
+  @@index([deploymentId])
+}
+
+// ────────────────────────────── Observability ──────────────────────────────
+
+model Metric {
+  id        String   @id @default(cuid())
+  serviceId String
+  name      String
+  envName   String   @default("production")
+  ts        DateTime
+  value     Float
+  unit      String   @default("ms")
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@index([serviceId, name, ts])
+}
+
+model LogEntry {
+  id        String   @id @default(cuid())
+  serviceId String
+  envName   String   @default("production")
+  ts        DateTime
+  level     String
+  message   String
+  requestId String?
+  traceId   String?
+  meta      String?
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@index([serviceId, ts])
+  @@index([level])
+}
+
+model TraceSpan {
+  id          String   @id @default(cuid())
+  traceId     String
+  parentSpanId String?
+  serviceKey  String
+  operation   String
+  startOffsetMs Float
+  durationMs  Float
+  status      String   @default("ok")
+
+  @@index([traceId])
+}
+
+model PerformanceSnapshot {
+  id        String   @id @default(cuid())
+  serviceId String
+  route     String
+  version   String
+  ts        DateTime
+  lcpMs     Float
+  inpMs     Float
+  cls       Float
+  ttfbMs    Float
+  fcpMs     Float
+  bundleKb  Float
+  cssKb     Float
+  imageKb   Float
+  score     Int
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@index([serviceId, route, ts])
+}
+
+// ────────────────────────────── Incidents ──────────────────────────────
+
+model Incident {
+  id                 String   @id @default(cuid())
+  orgId              String
+  ref                String   @unique
+  title              String
+  severity           String
+  status             String   @default("open")
+  ownerId            String
+  affectedServiceIds String   @default("[]")
+  impact             String?
+  detection          String?
+  rootCause          String?
+  resolution         String?
+  deploymentId       String?
+  startedAt          DateTime
+  resolvedAt         DateTime?
+  createdAt          DateTime @default(now())
+  organization Organization @relation(fields: [orgId], references: [id])
+  owner        User         @relation("IncidentOwner", fields: [ownerId], references: [id])
+  timeline     IncidentTimeline[]
+  postmortem   Postmortem?
+
+  @@index([status])
+  @@index([severity])
+}
+
+model IncidentTimeline {
+  id         String   @id @default(cuid())
+  incidentId String
+  at         DateTime
+  label      String
+  detail     String?
+  kind       String   @default("event")
+  incident Incident @relation(fields: [incidentId], references: [id])
+
+  @@index([incidentId])
+}
+
+model Postmortem {
+  id            String   @id @default(cuid())
+  incidentId    String   @unique
+  summary       String
+  impact        String
+  rootCause     String
+  resolution    String
+  lessons       String   @default("[]")
+  actions       String   @default("[]")
+  generatedByAi Boolean  @default(false)
+  published     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  incident Incident @relation(fields: [incidentId], references: [id])
+}
+
+// ────────────────────────────── Feature Flags ──────────────────────────────
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  orgId       String
+  key         String   @unique
+  name        String
+  description String
+  enabled     Boolean  @default(false)
+  envName     String   @default("production")
+  rollout     Int      @default(0)
+  rules       String   @default("[]")
+  ownerId     String
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  audits      FeatureFlagAudit[]
+}
+
+model FeatureFlagAudit {
+  id            String   @id @default(cuid())
+  flagId        String
+  userId        String
+  userName      String
+  action        String
+  previousValue String
+  newValue      String
+  reason        String?
+  at            DateTime @default(now())
+  flag FeatureFlag @relation(fields: [flagId], references: [id])
+
+  @@index([flagId, at])
+}
+
+// ────────────────────────────── Architecture ──────────────────────────────
+
+model ArchitectureNode {
+  id        String  @id @default(cuid())
+  orgId     String
+  key       String  @unique
+  label     String
+  kind      String
+  serviceSlug String?
+  tech      String?
+  x         Float
+  y         Float
+  meta      String?
+}
+
+model ArchitectureEdge {
+  id      String @id @default(cuid())
+  orgId   String
+  fromKey String
+  toKey   String
+  label   String?
+  kind    String @default("sync")
+
+  @@index([fromKey])
+  @@index([toKey])
+}
+
+// ────────────────────────────── Knowledge / RAG ──────────────────────────────
+
+model Document {
+  id        String   @id @default(cuid())
+  orgId     String
+  title     String
+  type      String
+  ref       String?
+  content   String
+  tags      String   @default("[]")
+  authorId  String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  chunks    KnowledgeChunk[]
+
+  @@index([type])
+}
+
+model KnowledgeChunk {
+  id         String @id @default(cuid())
+  documentId String
+  idx        Int
+  heading    String?
+  content    String
+  keywords   String  @default("")
+  document Document @relation(fields: [documentId], references: [id])
+
+  @@index([documentId])
+}
+
+// ────────────────────────────── Governance ──────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  orgId      String
+  userId     String
+  userName   String
+  action     String
+  targetType String
+  targetId   String?
+  detail     String?
+  at         DateTime @default(now())
+
+  @@index([at])
+}
+
+model Notification {
+  id     String  @id @default(cuid())
+  userId String
+  type   String
+  title  String
+  body   String?
+  read   Boolean @default(false)
+  viewKey String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model SecurityEvent {
+  id       String   @id @default(cuid())
+  orgId    String
+  kind     String
+  severity String
+  message  String
+  actor    String?
+  ip       String?
+  at       DateTime @default(now())
+
+  @@index([severity])
+}
+
+model Vulnerability {
+  id           String   @id @default(cuid())
+  orgId        String
+  serviceId    String?
+  cve          String
+  pkg          String
+  version      String
+  severity     String
+  cvss         Float
+  status       String   @default("open")
+  description  String
+  discoveredAt DateTime @default(now())
+  fixedAt      DateTime?
+  service Service? @relation(fields: [serviceId], references: [id])
+
+  @@index([severity])
+  @@index([status])
+}
+
+// ────────────────────────────── AI ──────────────────────────────
+
+model AIConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  createdAt DateTime @default(now())
+  messages  AIMessage[]
+
+  @@index([userId])
+}
+
+model AIMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String
+  content        String
+  toolTrace      String?
+  confidence     Float?
+  sources        String?
+  suggestedActions String?
+  createdAt      DateTime @default(now())
+  conversation AIConversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+}
+
+// ────────────────────────────── Analytics ──────────────────────────────
+
+model DailyStat {
+  id                String @id @default(cuid())
+  orgId             String
+  date              String
+  deployments       Int    @default(0)
+  failedDeployments Int    @default(0)
+  leadTimeHours     Float  @default(0)
+  changeFailureRate Float  @default(0)
+  mttrMinutes       Float  @default(0)
+  prThroughput      Float  @default(0)
+  availability      Float  @default(99.9)
+
+  @@unique([orgId, date])
+}

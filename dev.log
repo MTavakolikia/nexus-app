@@ -5,3 +5,24 @@
 ✓ Ready in 567ms
 ✓ Running next.config.ts took 101ms
 
+▲ Next.js 16.3.4 (Turbopack)
+- Local:         http://localhost:3100
+- Network:       http://172.16.16.47:3100
+- Environments: .env
+✓ Ready in 4.7s
+✓ Running next.config.ts took 255ms
+
+○ Compiling / ...
+ GET / 200 in 56ms (next.js: 20ms, application-code: 36ms)
+ GET /api/bootstrap 200 in 1434ms (next.js: 453ms, application-code: 981ms)
+ GET /api/services 200 in 290ms (next.js: 248ms, application-code: 42ms)
+ GET /api/deployments?limit=8 200 in 822ms (next.js: 809ms, application-code: 14ms)
+ GET /api/incidents 200 in 824ms (next.js: 752ms, application-code: 72ms)
+ GET /api/services?q=&team= 200 in 31ms (next.js: 3ms, application-code: 28ms)
+ GET /api/deployments?status=&q=&limit=50 200 in 24ms (next.js: 5ms, application-code: 19ms)
+ GET /api/flags 200 in 470ms (next.js: 452ms, application-code: 18ms)
+ GET /api/architecture 200 in 334ms (next.js: 324ms, application-code: 10ms)
+ GET /api/bootstrap 200 in 44ms (next.js: 4ms, application-code: 40ms)
+ GET /api/bootstrap 200 in 48ms (next.js: 8ms, application-code: 40ms)
+ GET /api/bootstrap 200 in 76ms (next.js: 3ms, application-code: 73ms)
+ GET /api/bootstrap 200 in 44ms (next.js: 3ms, application-code: 41ms)

@@ -126,6 +126,7 @@ Z.ai-powered copilot with scoped tool access:
 
 ## Architecture
 
+<<<<<<< HEAD
 ### System Flow
 
 ```mermaid
@@ -286,6 +287,9 @@ graph TD
 ---
 
 ### Tech Stack
+=======
+```
+>>>>>>> 9bf1f2eb50fda82ac7ff36a8d9e741ff5a6f9a3d
 ┌─────────────────────────────────────────────────────────────┐
 │                        Browser (Next.js 16)                  │
 │                                                             │

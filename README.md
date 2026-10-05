@@ -287,55 +287,93 @@ graph TD
 ---
 
 ### Tech Stack
-=======
-```
->>>>>>> 9bf1f2eb50fda82ac7ff36a8d9e741ff5a6f9a3d
-┌─────────────────────────────────────────────────────────────┐
-│                        Browser (Next.js 16)                  │
-│                                                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────┐ │
-│  │   Features   │  │    Shell     │  │    shadcn/ui      │ │
-│  │ (12 views)   │  │ (sidebar,    │  │  (48 components)  │ │
-│  │              │  │  cmd palette)│  │                   │ │
-│  └──────┬───────┘  └──────┬───────┘  └─────────┬─────────┘ │
-│         │                 │                    │           │
-│         ▼                 ▼                    ▼           │
-│  ┌────────────────────────────────────────────────┐        │
-│  │           State Management (Zustand)           │        │
-│  │  UI state only: view, sidebar, palette       │        │
-│  └──────────────┬─────────────────┬─────────────┘        │
-│                 │                 │                      │
-│                 ▼                 ▼                      │
-│  ┌─────────────────────┐  ┌──────────────────────┐       │
-│  │   TanStack Query    │  │   React Hook Form    │       │
-│  │  (Server state)     │  │   + Zod schemas    │       │
-│  └────────┬────────────┘  └────────┬─────────────┘       │
-│           │                         │                     │
-│           ▼                         ▼                     │
-│  ┌──────────────────────────────────────────┐             │
-│  │         Next.js App Router /api/*        │             │
-│  │       (Route Handlers / Server Actions)  │             │
-│  └──────────────────┬───────────────────────┘             │
-│                     │                                     │
-└─────────────────────┼─────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Server Layer (src/server/*)               │
-│                                                              │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │ AI       │  │ Queries  │  │ Deploy   │  │  Prisma  │   │
-│  │ Provider │  │ (data    │  │ Engine   │  │  Client  │   │
-│  │ (Z.ai)   │  │  fetch)  │  │ (mock)   │  │          │   │
-│  └──────────┘  └──────────┘  └──────────┘  └────┬─────┘   │
-│                                                 │          │
-│                                                 ▼          │
-│                                   ┌──────────────────────┐ │
-│                                   │     PostgreSQL       │ │
-│                                   │     (sqlite-dev)     │ │
-│                                   │   + pgvector(RAG)    │ │
-│                                   └──────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+
+```mermaid
+flowchart LR
+    subgraph Core["Core Runtime"]
+        Next["Next.js 16<br/>App Router + Turbopack"]
+        Node["Node.js 22"]
+        TS["TypeScript 5"]
+        Tailwind["Tailwind CSS 4<br/>Semantic Tokens"]
+        Font["Geist / Geist Mono"]
+    end
+
+    subgraph Data["Data & State"]
+        Prisma["Prisma 6<br/>ORM"]
+        SQLite["SQLite<br/>dev/demo"]
+        Postgres["PostgreSQL<br/>+ pgvector<br/>production"]
+        TanStack["TanStack Query 5<br/>Server State"]
+        Zust["Zustand 5<br/>UI State"]
+        Zod["Zod 4<br/>Validation"]
+    end
+
+    subgraph UI["UI & UX"]
+        Shadcn["shadcn/ui<br/>(Radix UI)<br/>48 components"]
+        Icons["lucide-react"]
+        Charts["recharts"]
+        XY["@xyflow/react<br/>Graph Viz"]
+        Forms["react-hook-form<br/>+ resolvers"]
+        Toast["sonner"]
+        DnD["@dnd-kit"]
+        MD["react-markdown<br/>+ syntax-highlight"]
+    end
+
+    subgraph AI["AI & Platform"]
+        ZAI["Z.ai API"]
+        MDX["@mdxeditor/editor"]
+        UUID["uuid"]
+        Dates["date-fns"]
+        Env["@reactuses/core"]
+    end
+
+    subgraph External["External Services"]
+        Caddy["Caddy Reverse Proxy<br/>port 81"]
+        WS["WebSocket Example<br/>socket.io"]
+    end
+
+    Next --> Node
+    Next --> TS
+    Next --> Tailwind
+    Next --> Font
+
+    Next --> Prisma
+    Prisma --> SQLite
+    Prisma --> Postgres
+
+    Next --> Shadcn
+    Shadcn --> Icons
+    Shadcn --> Charts
+    Shadcn --> XY
+    Shadcn --> Forms
+    Shadcn --> Toast
+    Shadcn --> DnD
+    Shadcn --> MD
+    Shadcn --> MDX
+
+    Next --> ZAI
+    Next --> UUID
+    Next --> Dates
+    Next --> Env
+    Next --> Zod
+
+    Next --> TanStack
+    Next --> Zust
+    TanStack --> Zod
+
+    Next --> Caddy
+    WS --> Caddy
+
+    classDef core fill:#3b82f6,color:#fff
+    classDef data fill:#10b981,color:#fff
+    classDef ui fill:#f59e0b,color:#000
+    classDef ai fill:#8b5cf6,color:#fff
+    classDef ext fill:#ef4444,color:#fff
+
+    class Next,Node,TS,Tailwind,Font core
+    class Prisma,SQLite,Postgres,TanStack,Zust,Zod data
+    class Shadcn,Icons,Charts,XY,Forms,Toast,DnD,MD,MDX ui
+    class ZAI,UUID,Dates,Env ai
+    class Caddy,WS ext
 ```
 
 ### Design Principles
@@ -346,6 +384,8 @@ graph TD
 - **Zustand for UI state only** — Navigation, sidebar, density, command palette state
 - **Zod is the schema boundary** — The same schema validates route handlers, server actions, and AI tool inputs
 - **SSE for real-time** — Deployment pipelines stream via Server-Sent Events over HTTP
+
+### Key ADRs
 
 ### Key ADRs
 
